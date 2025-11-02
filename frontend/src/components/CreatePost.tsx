@@ -10,7 +10,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/client';
 
 const CreatePost: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -33,7 +33,7 @@ const CreatePost: React.FC = () => {
     setLoading(true);
 
     try {
-      await axios.post('/api/posts', {
+      await apiClient.post('/api/posts', {
         game_id: parseInt(gameId!),
         title,
         content,

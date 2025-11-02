@@ -12,7 +12,7 @@ import {
   Divider,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/client';
 import AddIcon from '@mui/icons-material/Add';
 import PersonIcon from '@mui/icons-material/Person';
 
@@ -47,7 +47,7 @@ const GameDiscussion: React.FC = () => {
 
   const fetchGameDetails = async () => {
     try {
-      const response = await axios.get(`/api/games/${gameId}`);
+      const response = await apiClient.get(`/api/games/${gameId}`);
       setGame(response.data);
     } catch (error) {
       console.error('Error fetching game details:', error);
@@ -56,7 +56,9 @@ const GameDiscussion: React.FC = () => {
 
   const fetchPosts = async () => {
     try {
-      const response = await axios.get(`/api/posts?game_id=${gameId}`);
+      const response = await apiClient.get(`/api/posts`, {
+        params: { game_id: gameId },
+      });
       setPosts(response.data);
     } catch (error) {
       console.error('Error fetching posts:', error);

@@ -11,7 +11,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../api/client';
 import SentimentVerySatisfiedIcon from '@mui/icons-material/SentimentVerySatisfied';
 import SentimentVeryDissatisfiedIcon from '@mui/icons-material/SentimentVeryDissatisfied';
 import SentimentNeutralIcon from '@mui/icons-material/SentimentNeutral';
@@ -37,7 +37,7 @@ const GamesList: React.FC = () => {
 
   const fetchGames = async () => {
     try {
-      const response = await axios.get('/api/games');
+      const response = await apiClient.get('/api/games');
       setGames(response.data);
     } catch (error) {
       console.error('Error fetching games:', error);

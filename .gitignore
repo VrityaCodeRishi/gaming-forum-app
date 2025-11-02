@@ -1,0 +1,130 @@
+# ==========================================
+# Gaming Forum Stack - Git Ignore Rules
+# Covers Terraform, Python backend, and Vite/React frontend artifacts
+# ==========================================
+
+# ==========================================
+# General environment, secrets, logs, and temp files
+# ==========================================
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.log
+*.tmp
+*.cache
+*.swp
+*.swo
+*~
+logs/
+tmp/
+
+# ==========================================
+# Python backend artifacts
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+htmlcov/
+.tox/
+.nox/
+coverage/
+.coverage*
+.cache/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+backend/.venv/
+backend/venv/
+backend/env/
+
+# ==========================================
+# Node / Vite frontend artifacts
+# ==========================================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+frontend/.eslintcache
+frontend/coverage/
+frontend/.env
+frontend/.env.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Terraform state and local configuration
+# ==========================================
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+terraform/*.tfvars.json
+terraform/*.tfplan
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
+# ==========================================
+# Docker volumes and generated data
+# ==========================================
+docker-volumes/
+
+# ==========================================
+# Database artifacts
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+database/data/
+database/backups/
+
+# ==========================================
+# Tooling / IDE metadata
+# ==========================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -1,0 +1,314 @@
+version: 2.1
+orbs:
+  azure-cli: circleci/azure-cli@2.1.0
+
+executors:
+  docker-builder:
+    docker:
+      - image: cimg/base:2024.11
+    resource_class: medium
+
+commands:
+  install-azure-cli:
+    description: "Install Azure CLI latest version"
+    steps:
+      - run:
+          name: Install Azure CLI
+          command: |
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+            az version
+
+  login-azure:
+    description: "Login to Azure using Service Principal"
+    steps:
+      - run:
+          name: Azure Login
+          command: |
+            az login --service-principal \
+              --username ${AZURE_CLIENT_ID} \
+              --password ${AZURE_CLIENT_SECRET} \
+              --tenant ${AZURE_TENANT_ID}
+            az account set --subscription ${AZURE_SUBSCRIPTION_ID}
+            az account show
+
+  login-acr:
+    description: "Login to Azure Container Registry"
+    steps:
+      - run:
+          name: ACR Login
+          command: |
+            echo ${ACR_PASSWORD} | docker login ${ACR_LOGIN_SERVER} \
+              --username ${ACR_USERNAME} \
+              --password-stdin
+
+jobs:
+  build-backend:
+    executor: docker-builder
+    steps:
+      - checkout
+      
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: docker24
+      
+      - login-acr
+      
+      - run:
+          name: Build backend Docker image
+          command: |
+            docker build \
+              --cache-from ${ACR_LOGIN_SERVER}/backend:latest \
+              -t ${ACR_LOGIN_SERVER}/backend:${CIRCLE_SHA1} \
+              -t ${ACR_LOGIN_SERVER}/backend:latest \
+              -f backend/Dockerfile.prod \
+              backend/
+      
+      - run:
+          name: Push backend to ACR
+          command: |
+            docker push ${ACR_LOGIN_SERVER}/backend:${CIRCLE_SHA1}
+            docker push ${ACR_LOGIN_SERVER}/backend:latest
+      
+      - run:
+          name: Image info
+          command: |
+            echo "Backend image: ${ACR_LOGIN_SERVER}/backend:${CIRCLE_SHA1}"
+
+  build-frontend:
+    executor: docker-builder
+    steps:
+      - checkout
+      
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: docker24
+      
+      - login-acr
+      
+      - run:
+          name: Build frontend Docker image
+          command: |
+            docker build \
+              --cache-from ${ACR_LOGIN_SERVER}/frontend:latest \
+              -t ${ACR_LOGIN_SERVER}/frontend:${CIRCLE_SHA1} \
+              -t ${ACR_LOGIN_SERVER}/frontend:latest \
+              -f frontend/Dockerfile.prod \
+              frontend/
+      
+      - run:
+          name: Push frontend to ACR
+          command: |
+            docker push ${ACR_LOGIN_SERVER}/frontend:${CIRCLE_SHA1}
+            docker push ${ACR_LOGIN_SERVER}/frontend:latest
+      
+      - run:
+          name: Image info
+          command: |
+            echo "Frontend image: ${ACR_LOGIN_SERVER}/frontend:${CIRCLE_SHA1}"
+
+  deploy-backend:
+    executor: docker-builder
+    steps:
+      - checkout
+      - install-azure-cli
+      - login-azure
+      
+      - run:
+          name: Deploy Backend Container App
+          command: |
+            echo "Checking if backend container app exists..."
+            
+            if az containerapp show \
+              --name gaming-forum-prod-backend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query name -o tsv &> /dev/null; then
+              
+              echo "✓ Container app exists - updating..."
+              az containerapp update \
+                --name gaming-forum-prod-backend \
+                --resource-group ${RESOURCE_GROUP_NAME} \
+                --image ${ACR_LOGIN_SERVER}/backend:${CIRCLE_SHA1} \
+                --revision-suffix ${CIRCLE_SHA1:0:7}
+            else
+              echo "✓ Creating new backend container app..."
+              az containerapp create \
+                --name gaming-forum-prod-backend \
+                --resource-group ${RESOURCE_GROUP_NAME} \
+                --environment ${CONTAINER_APP_ENVIRONMENT_NAME} \
+                --image ${ACR_LOGIN_SERVER}/backend:${CIRCLE_SHA1} \
+                --target-port 8000 \
+                --ingress external \
+                --registry-server ${ACR_LOGIN_SERVER} \
+                --registry-username ${ACR_USERNAME} \
+                --registry-password ${ACR_PASSWORD} \
+                --env-vars \
+                  "DATABASE_URL=${DATABASE_CONNECTION_STRING}" \
+                  "PYTHONUNBUFFERED=1" \
+                --cpu 1.0 \
+                --memory 2Gi \
+                --min-replicas 1 \
+                --max-replicas 3 \
+                --revision-suffix ${CIRCLE_SHA1:0:7}
+            fi
+      
+      - run:
+          name: Verify Backend Health
+          command: |
+            echo "Getting backend URL..."
+            BACKEND_FQDN=$(az containerapp show \
+              --name gaming-forum-prod-backend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query properties.configuration.ingress.fqdn \
+              -o tsv)
+            
+            BACKEND_URL="https://${BACKEND_FQDN}"
+            echo "Backend URL: ${BACKEND_URL}"
+            
+            echo "Waiting for backend to be ready..."
+            sleep 45
+            
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+            
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if curl -sf "${BACKEND_URL}/health" > /dev/null; then
+                echo "  Backend health check passed!"
+                echo "export BACKEND_URL=${BACKEND_URL}" >> $BASH_ENV
+                exit 0
+              fi
+              
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "Retry $RETRY_COUNT/$MAX_RETRIES - waiting 10s..."
+              sleep 10
+            done
+            
+            echo "  Backend health check failed after ${MAX_RETRIES} retries"
+            exit 1
+      
+      - run:
+          name: Test Backend API
+          command: |
+            source $BASH_ENV
+            echo "Testing backend API..."
+            curl -f "${BACKEND_URL}/api/games" | jq '.[0]' || exit 1
+            echo "  Backend API is working!"
+
+  deploy-frontend:
+    executor: docker-builder
+    steps:
+      - checkout
+      - install-azure-cli
+      - login-azure
+      
+      - run:
+          name: Get Backend URL
+          command: |
+            BACKEND_FQDN=$(az containerapp show \
+              --name gaming-forum-prod-backend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query properties.configuration.ingress.fqdn \
+              -o tsv)
+            
+            echo "export BACKEND_URL=https://${BACKEND_FQDN}" >> $BASH_ENV
+            source $BASH_ENV
+            echo "Backend URL: ${BACKEND_URL}"
+      
+      - run:
+          name: Deploy Frontend Container App
+          command: |
+            source $BASH_ENV
+            
+            echo "Checking if frontend container app exists..."
+            
+            if az containerapp show \
+              --name gaming-forum-prod-frontend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query name -o tsv &> /dev/null; then
+              
+              echo "✓ Container app exists - updating..."
+              az containerapp update \
+                --name gaming-forum-prod-frontend \
+                --resource-group ${RESOURCE_GROUP_NAME} \
+                --image ${ACR_LOGIN_SERVER}/frontend:${CIRCLE_SHA1} \
+                --set-env-vars "VITE_API_URL=${BACKEND_URL}" \
+                --revision-suffix ${CIRCLE_SHA1:0:7}
+            else
+              echo "✓ Creating new frontend container app..."
+              az containerapp create \
+                --name gaming-forum-prod-frontend \
+                --resource-group ${RESOURCE_GROUP_NAME} \
+                --environment ${CONTAINER_APP_ENVIRONMENT_NAME} \
+                --image ${ACR_LOGIN_SERVER}/frontend:${CIRCLE_SHA1} \
+                --target-port 3000 \
+                --ingress external \
+                --registry-server ${ACR_LOGIN_SERVER} \
+                --registry-username ${ACR_USERNAME} \
+                --registry-password ${ACR_PASSWORD} \
+                --env-vars \
+                  "VITE_API_URL=${BACKEND_URL}" \
+                --cpu 0.5 \
+                --memory 1Gi \
+                --min-replicas 1 \
+                --max-replicas 3 \
+                --revision-suffix ${CIRCLE_SHA1:0:7}
+            fi
+      
+      - run:
+          name: Deployment Summary
+          command: |
+            echo "Deployment Complete!"
+            FRONTEND_FQDN=$(az containerapp show \
+              --name gaming-forum-prod-frontend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query properties.configuration.ingress.fqdn \
+              -o tsv)
+            
+            BACKEND_FQDN=$(az containerapp show \
+              --name gaming-forum-prod-backend \
+              --resource-group ${RESOURCE_GROUP_NAME} \
+              --query properties.configuration.ingress.fqdn \
+              -o tsv)
+            
+            echo ""
+            echo "  Frontend URL: https://${FRONTEND_FQDN}"
+            echo "  Backend URL:  https://${BACKEND_FQDN}"
+            echo ""
+            echo "View logs:"
+            echo "   Backend:  az containerapp logs show -n gaming-forum-prod-backend -g ${RESOURCE_GROUP_NAME}"
+            echo "   Frontend: az containerapp logs show -n gaming-forum-prod-frontend -g ${RESOURCE_GROUP_NAME}"
+            echo ""
+
+workflows:
+  version: 2
+  
+  build-and-deploy:
+    jobs:
+      - build-backend:
+          filters:
+            branches:
+              only:
+                - main
+      
+      - build-frontend:
+          filters:
+            branches:
+              only:
+                - main
+      
+      - deploy-backend:
+          requires:
+            - build-backend
+          filters:
+            branches:
+              only:
+                - main
+    
+      - deploy-frontend:
+          requires:
+            - build-frontend
+            - deploy-backend
+          filters:
+            branches:
+              only:
+                - main

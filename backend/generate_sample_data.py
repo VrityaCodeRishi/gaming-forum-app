@@ -1,13 +1,33 @@
-## Script created by perplexity to fill the bogus data of users,games and their reviews
+"""
+Script to populate Azure PostgreSQL database with sample gaming forum data
+Run with: python populate_azure_db.py
+"""
 
 import sys
-sys.path.append('.')
-
-from database import SessionLocal
-from models import User, Game, Post
-from sentiment import sentiment_analyzer
+import os
+from sqlalchemy import create_engine, func
+from sqlalchemy.orm import sessionmaker
 import random
 from datetime import datetime, timedelta
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from backend.database import Base
+from backend.models import User, Game, Post
+from backend.sentiment import sentiment_analyzer
+
+# Get Azure database URL from environment or use default
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://pgadmin:YourPassword@gaming-forum-prod-psql-xxxxx.postgres.database.azure.com:5432/forum_db?sslmode=require"
+)
+
+print(f"Connecting to: {DATABASE_URL.split('@')[1].split('/')[0]}")  # Show host only
+
+# Create engine and session
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Expanded list of 60 popular games
 GAMES_DATA = [
@@ -118,7 +138,7 @@ USERNAMES = [
     "ComboMaster", "InputReader", "FramePerfect", "TechChaser", "WaveDasher",
 ]
 
-# Review templates (same as before)
+# Review templates
 POSITIVE_REVIEWS = [
     ("Amazing masterpiece!", "This game is absolutely incredible! Best {genre} I've played in years. The graphics are stunning and gameplay is perfect. 10/10 would recommend!"),
     ("Exceeded all expectations", "Wow! This game blew my mind. The story is engaging, mechanics are smooth, and the world feels alive. Can't stop playing!"),
@@ -130,8 +150,6 @@ POSITIVE_REVIEWS = [
     ("Can't put it down", "I've been playing non-stop! The game is so engaging and fun. Time just flies by when I play."),
     ("Absolutely stunning", "Visually stunning and mechanically brilliant. This game is a work of art!"),
     ("10/10 masterpiece", "Perfect 10/10. No flaws, just pure gaming excellence. A must-play for everyone!"),
-    ("Epic experience", "What an epic journey! Every moment was memorable. This is gaming at its finest!"),
-    ("Highly addictive", "Warning: extremely addictive! Lost track of time multiple times. Just one more turn syndrome is real!"),
 ]
 
 NEGATIVE_REVIEWS = [
@@ -143,10 +161,6 @@ NEGATIVE_REVIEWS = [
     ("Huge letdown", "Such a letdown after all the hype. Poor mechanics, terrible AI, dated graphics. Very disappointing."),
     ("Refunded immediately", "Played for 30 minutes and refunded. Awful controls, bad design, not fun at all."),
     ("Worst {genre} ever", "Probably the worst {genre} I've ever played. Everything feels cheap and rushed."),
-    ("Avoid at all costs", "Do NOT buy this game! It's broken, boring, and not worth your time or money."),
-    ("Complete disaster", "What a disaster! Nothing works properly. The devs clearly didn't care. Terrible game."),
-    ("Unplayable garbage", "Literally unplayable. Crashes every 10 minutes. How did this pass QA testing?"),
-    ("Regret buying", "My biggest gaming regret this year. Save your money and skip this trash."),
 ]
 
 NEUTRAL_REVIEWS = [
@@ -156,22 +170,28 @@ NEUTRAL_REVIEWS = [
     ("Has potential", "The game has potential but feels unfinished. Good ideas but poor execution. Maybe worth it after updates."),
     ("Could be better", "It's alright but could be much better. Some good parts but also many issues that hold it back."),
     ("Not for everyone", "Not a bad game but definitely not for everyone. If you're a fan of {genre}, you might enjoy it."),
-    ("Decent but flawed", "Decent game with some major flaws. Fun when it works but has too many problems."),
-    ("Worth it on sale", "Wait for a sale. The game is okay but not worth full price. Get it when it's 50% off."),
 ]
+
 
 def generate_sample_data():
     """Generate sample data with 60 games and 1000+ posts"""
     db = SessionLocal()
     
     try:
-        print("🎮 Gaming Forum Data Generator - Extended Edition")
+        print("🎮 Gaming Forum Data Generator - Azure Edition")
         print("=" * 60)
+        print(f"📍 Target: Azure PostgreSQL")
+        print()
+        
+        # Create tables if they don't exist
+        print("🔧 Creating tables if needed...")
+        Base.metadata.create_all(bind=engine)
+        print("✓ Tables ready")
         
         # Create/update games
         print("\n🎯 Creating 60 games...")
         games_created = 0
-        existing_games = {g.name for g in db.query(Game.name).all()}
+        existing_games = {g[0] for g in db.query(Game.name).all()}
         
         for name, genre, description in GAMES_DATA:
             if name not in existing_games:
@@ -189,7 +209,7 @@ def generate_sample_data():
         
         # Create users
         print("\n👥 Creating 100 users...")
-        existing_users = {u.username for u in db.query(User.username).all()}
+        existing_users = {u[0] for u in db.query(User.username).all()}
         new_users = []
         
         for username in USERNAMES:
@@ -200,13 +220,18 @@ def generate_sample_data():
                 )
                 new_users.append(user)
         
-        db.add_all(new_users)
-        db.commit()
+        if new_users:
+            db.add_all(new_users)
+            db.commit()
         print(f"✓ Created {len(new_users)} new users (Total: {len(USERNAMES)} users)")
         
         # Get all games and users
         all_games = db.query(Game).all()
         all_users = db.query(User).all()
+        
+        if not all_users:
+            print("❌ No users found! Check database connection.")
+            return
         
         # Generate 1000 posts
         print("\n📝 Generating 1000 posts with sentiment analysis...")
@@ -273,8 +298,6 @@ def generate_sample_data():
         print("\n📊 Final Statistics:")
         print("=" * 60)
         
-        from sqlalchemy import func
-        
         # Overall stats
         total_posts = db.query(func.count(Post.id)).scalar()
         total_games = db.query(func.count(Game.id)).scalar()
@@ -293,44 +316,8 @@ def generate_sample_data():
         print(f"Negative: {negative_count} ({negative_count/total_posts*100:.1f}%)")
         print(f"Neutral: {neutral_count} ({neutral_count/total_posts*100:.1f}%)")
         
-        # Top 10 games by sentiment
-        print("\n🏆 Top 10 Games (by sentiment):")
-        top_games = (
-            db.query(
-                Game.name,
-                func.avg(Post.sentiment_score).label('avg_sentiment'),
-                func.count(Post.id).label('post_count')
-            )
-            .join(Post)
-            .group_by(Game.id, Game.name)
-            .order_by(func.avg(Post.sentiment_score).desc())
-            .limit(10)
-            .all()
-        )
-        
-        for i, (name, avg_sent, count) in enumerate(top_games, 1):
-            print(f"  {i:2d}. {name:35s} {avg_sent:6.3f} ({count:3d} posts)")
-        
-        # Bottom 10 games by sentiment
-        print("\n💔 Bottom 10 Games (by sentiment):")
-        bottom_games = (
-            db.query(
-                Game.name,
-                func.avg(Post.sentiment_score).label('avg_sentiment'),
-                func.count(Post.id).label('post_count')
-            )
-            .join(Post)
-            .group_by(Game.id, Game.name)
-            .order_by(func.avg(Post.sentiment_score).asc())
-            .limit(10)
-            .all()
-        )
-        
-        for i, (name, avg_sent, count) in enumerate(bottom_games, 1):
-            print(f"  {i:2d}. {name:35s} {avg_sent:6.3f} ({count:3d} posts)")
-        
-        print("\n✅ Data generation complete!")
-        print("🎮 Open http://localhost:3000 to see your populated forum!")
+        print("\nData generation complete!")
+        print(f"Check your app at: https://gaming-forum-prod-frontend.*.azurecontainerapps.io")
         
     except Exception as e:
         print(f"\n❌ Error: {e}")
@@ -339,6 +326,7 @@ def generate_sample_data():
         traceback.print_exc()
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     generate_sample_data()

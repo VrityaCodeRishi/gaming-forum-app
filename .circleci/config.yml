@@ -19,6 +19,18 @@ commands:
           command: |
             curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
             az version
+      - run:
+          name: Debug Environment Variables
+          command: |
+            echo "Checking environment variables..."
+            echo "ACR_LOGIN_SERVER length: ${#ACR_LOGIN_SERVER}"
+            echo "ACR_LOGIN_SERVER (first 10 chars): ${ACR_LOGIN_SERVER:0:10}"
+            echo "ACR_USERNAME: ${ACR_USERNAME}"
+            
+            if [ -z "$ACR_LOGIN_SERVER" ]; then
+              echo "ERROR: ACR_LOGIN_SERVER is empty!"
+              exit 1
+            fi
 
   login-azure:
     description: "Login to Azure using Service Principal"
@@ -68,7 +80,7 @@ jobs:
               --cache-from ${ACR_LOGIN_SERVER}/backend:latest \
               -t ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/backend:latest \
-              -f backend/Dockerfile.prod \
+              -f backend/Dockerfile \
               backend/
       
       - run:
@@ -109,7 +121,7 @@ jobs:
               --cache-from ${ACR_LOGIN_SERVER}/frontend:latest \
               -t ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/frontend:latest \
-              -f frontend/Dockerfile.prod \
+              -f frontend/Dockerfile \
               frontend/
       
       - run:

@@ -2,7 +2,7 @@ version: 2.1
 
 # Latest CircleCI Orbs (November 2025)
 orbs:
-  azure-cli: circleci/azure-cli@2.1.0
+  azure-cli: circleci/azure-cli@1.3.1
 
 # Executors with latest images
 executors:

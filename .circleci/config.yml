@@ -97,7 +97,7 @@ jobs:
               --cache-from ${ACR_LOGIN_SERVER}/backend:latest \
               -t ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/backend:latest \
-              -f backend/Dockerfile.prod \
+              -f backend/Dockerfile \
               backend/
       
       - run:
@@ -261,7 +261,7 @@ jobs:
               --build-arg VITE_API_URL=${BACKEND_URL} \
               -t ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/frontend:latest \
-              -f frontend/Dockerfile.prod \
+              -f frontend/Dockerfile \
               frontend/
       
       - run:

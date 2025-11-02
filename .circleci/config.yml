@@ -1,17 +1,14 @@
 version: 2.1
 
-# Latest CircleCI Orbs (November 2025)
 orbs:
   azure-cli: circleci/azure-cli@1.3.1
 
-# Executors with latest images
 executors:
   docker-builder:
     docker:
       - image: cimg/base:2024.11
     resource_class: medium
 
-# Reusable commands
 commands:
   install-azure-cli:
     description: "Install Azure CLI latest version"
@@ -258,6 +255,7 @@ jobs:
             
             # Build with backend URL as build argument
             docker build \
+              --no-cache \
               --build-arg VITE_API_URL=${BACKEND_URL} \
               -t ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/frontend:latest \

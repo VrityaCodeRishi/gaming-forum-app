@@ -1,16 +1,10 @@
--- Don't drop/create database in init script - Docker already creates it
--- Just connect to the existing forum_db database
-
--- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop existing tables if they exist (for clean restart)
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS games CASCADE;
 
--- Games table
 CREATE TABLE games (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
@@ -20,7 +14,6 @@ CREATE TABLE games (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
@@ -28,7 +21,6 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Posts table
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -42,7 +34,6 @@ CREATE TABLE posts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Comments table
 CREATE TABLE comments (
     id SERIAL PRIMARY KEY,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
@@ -53,14 +44,12 @@ CREATE TABLE comments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
 CREATE INDEX idx_posts_game_id ON posts(game_id);
 CREATE INDEX idx_posts_user_id ON posts(user_id);
 CREATE INDEX idx_posts_sentiment ON posts(sentiment_score) WHERE sentiment_score IS NOT NULL;
 CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
 CREATE INDEX idx_comments_post_id ON comments(post_id);
 
--- Insert sample games
 INSERT INTO games (name, genre, description, image_url) VALUES
 ('The Last of Us Part II', 'Action-Adventure', 'Post-apocalyptic action-adventure game with stunning storytelling', 'https://placehold.co/300x400/21808d/ffffff?text=TLOU2'),
 ('Elden Ring', 'Action RPG', 'Open-world action role-playing game from FromSoftware', 'https://placehold.co/300x400/32b8c6/ffffff?text=Elden+Ring'),
@@ -73,7 +62,6 @@ INSERT INTO games (name, genre, description, image_url) VALUES
 ('Final Fantasy XVI', 'Action RPG', 'Fantasy action RPG with real-time combat', 'https://placehold.co/300x400/21808d/ffffff?text=FF16'),
 ('Zelda: Tears of the Kingdom', 'Action-Adventure', 'Open-world adventure game sequel to Breath of the Wild', 'https://placehold.co/300x400/32b8c6/ffffff?text=Zelda');
 
--- Insert sample users
 INSERT INTO users (username, email) VALUES
 ('gamer_pro', 'gamer.pro@example.com'),
 ('rpg_fanatic', 'rpg.fan@example.com'),
@@ -81,7 +69,6 @@ INSERT INTO users (username, email) VALUES
 ('speedrunner', 'speedrun@example.com'),
 ('reviewer_alex', 'alex@example.com');
 
--- Insert sample posts (without sentiment - will be added by ML backend)
 INSERT INTO posts (user_id, game_id, title, content) VALUES
 (1, 2, 'Elden Ring is a masterpiece!', 'Just finished my first playthrough and I am blown away. The open world design is incredible and every boss fight feels rewarding.'),
 (2, 5, 'Baldurs Gate 3 - Best RPG of the decade', 'The storytelling, character development, and choices actually matter. This is what RPGs should be!'),
@@ -89,7 +76,6 @@ INSERT INTO posts (user_id, game_id, title, content) VALUES
 (4, 1, 'TLOU2 has the best graphics I have ever seen', 'The attention to detail is insane. Every environment feels real and lived in.'),
 (5, 6, 'Starfield is boring and repetitive', 'I wanted to love this game but the procedural generation makes everything feel samey. Lost interest after 20 hours.');
 
--- Create a function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -98,10 +84,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create trigger for posts table
 CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Grant permissions (optional, but good practice)
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;

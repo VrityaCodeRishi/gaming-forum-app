@@ -47,3 +47,4 @@ variable "db_admin_password" {
     error_message = "Password must be at least 8 characters long."
   }
 }
+

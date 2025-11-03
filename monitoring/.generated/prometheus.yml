@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'gaming-forum-prod'
+    environment: 'production'
+
+scrape_configs:
+  - job_name: 'gaming-forum-backend'
+    metrics_path: '/metrics'
+    scheme: https
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['gaming-forum-prod-backend.blueocean-be9809aa.westus.azurecontainerapps.io']
+        labels:
+          service: 'backend'
+          app: 'gaming-forum'
+  
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'

@@ -67,3 +67,4 @@ output "deployment_info" {
     location            = azurerm_resource_group.main.location
   }
 }
+

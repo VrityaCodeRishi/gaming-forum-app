@@ -1,4 +1,3 @@
-# File Share for Prometheus Config
 resource "azurerm_storage_share" "prometheus_config" {
   name                 = "prometheus-config"
   storage_account_name = azurerm_storage_account.monitoring.name
@@ -7,20 +6,18 @@ resource "azurerm_storage_share" "prometheus_config" {
   depends_on = [time_sleep.storage_account_ready]
 }
 
-# Generate Prometheus config from template
 locals {
   prometheus_config = templatefile("${path.module}/config/prometheus.yml.tpl", {
     backend_fqdn = var.backend_fqdn
   })
 }
 
-# Write config to local file
 resource "local_file" "prometheus_yml" {
   content  = local.prometheus_config
   filename = "${path.module}/.generated/prometheus.yml"
 }
 
-# Upload Prometheus Config
+
 resource "azurerm_storage_share_file" "prometheus_yml" {
   name             = "prometheus.yml"
   storage_share_id = azurerm_storage_share.prometheus_config.id
@@ -29,7 +26,7 @@ resource "azurerm_storage_share_file" "prometheus_yml" {
   depends_on = [local_file.prometheus_yml]
 }
 
-# Container App Environment Storage
+
 resource "azurerm_container_app_environment_storage" "prometheus_config" {
   name                         = "prometheus-config"
   container_app_environment_id = var.container_app_environment_id
@@ -39,7 +36,7 @@ resource "azurerm_container_app_environment_storage" "prometheus_config" {
   access_mode                  = "ReadOnly"
 }
 
-# Prometheus Container App
+
 resource "azurerm_container_app" "prometheus" {
   name                         = "${local.name_prefix}-prometheus"
   container_app_environment_id = var.container_app_environment_id

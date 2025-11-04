@@ -12,7 +12,6 @@ provider "azurerm" {
   subscription_id = "63cdb0cd-930f-4664-b489-b30ac48a5f1e"
 }
 
-# Generate random suffix for globally unique names
 resource "random_string" "suffix" {
   length  = 6
   special = false
@@ -29,14 +28,14 @@ locals {
   }
 }
 
-# Resource Group
+
 resource "azurerm_resource_group" "main" {
   name     = "${local.name_prefix}-rg"
   location = var.location
   tags     = local.common_tags
 }
 
-# Container Registry
+
 resource "azurerm_container_registry" "acr" {
   name                = "${replace(var.project_name, "-", "")}${var.environment}${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
@@ -49,7 +48,7 @@ resource "azurerm_container_registry" "acr" {
   tags = local.common_tags
 }
 
-# Log Analytics Workspace
+
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${local.name_prefix}-logs"
   resource_group_name = azurerm_resource_group.main.name
@@ -60,7 +59,7 @@ resource "azurerm_log_analytics_workspace" "main" {
   tags = local.common_tags
 }
 
-# Container Apps Environment
+
 resource "azurerm_container_app_environment" "main" {
   name                       = "${local.name_prefix}-cae"
   resource_group_name        = azurerm_resource_group.main.name
@@ -70,7 +69,7 @@ resource "azurerm_container_app_environment" "main" {
   tags = local.common_tags
 }
 
-# PostgreSQL Flexible Server
+
 resource "azurerm_postgresql_flexible_server" "main" {
   name                   = "${local.name_prefix}-psql-${random_string.suffix.result}"
   resource_group_name    = azurerm_resource_group.main.name
@@ -96,7 +95,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   tags = local.common_tags
 }
 
-# PostgreSQL Database
+
 resource "azurerm_postgresql_flexible_server_database" "main" {
   name      = "forum_db"
   server_id = azurerm_postgresql_flexible_server.main.id
@@ -104,7 +103,7 @@ resource "azurerm_postgresql_flexible_server_database" "main" {
   collation = "en_US.utf8"
 }
 
-# PostgreSQL Firewall Rule - Allow Azure Services
+
 resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
   name             = "AllowAzureServices"
   server_id        = azurerm_postgresql_flexible_server.main.id
@@ -112,7 +111,7 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
-# PostgreSQL Firewall Rule - Allow All (for development - remove in production)
+
 resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all" {
   name             = "AllowAll"
   server_id        = azurerm_postgresql_flexible_server.main.id

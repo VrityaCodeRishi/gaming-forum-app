@@ -28,26 +28,26 @@ commands:
             echo "Checking Azure credentials..."
             
             if [ -z "$AZURE_CLIENT_ID" ]; then
-              echo "❌ ERROR: AZURE_CLIENT_ID is not set!"
+              echo "ERROR: AZURE_CLIENT_ID is not set!"
               exit 1
             fi
             
             if [ -z "$AZURE_CLIENT_SECRET" ]; then
-              echo "❌ ERROR: AZURE_CLIENT_SECRET is not set!"
+              echo "ERROR: AZURE_CLIENT_SECRET is not set!"
               exit 1
             fi
             
             if [ -z "$AZURE_TENANT_ID" ]; then
-              echo "❌ ERROR: AZURE_TENANT_ID is not set!"
+              echo "ERROR: AZURE_TENANT_ID is not set!"
               exit 1
             fi
             
             if [ -z "$AZURE_SUBSCRIPTION_ID" ]; then
-              echo "❌ ERROR: AZURE_SUBSCRIPTION_ID is not set!"
+              echo "ERROR: AZURE_SUBSCRIPTION_ID is not set!"
               exit 1
             fi
             
-            echo "✅ All Azure credentials are set"
+            echo "All Azure credentials are set"
       
       - run:
           name: Azure Login
@@ -69,9 +69,7 @@ commands:
               --username ${ACR_USERNAME} \
               --password-stdin
 
-# Jobs
 jobs:
-  # Build and push backend image
   build-backend:
     executor: docker-builder
     steps:
@@ -110,9 +108,8 @@ jobs:
           name: Image info
           command: |
             SHORT_SHA=${CIRCLE_SHA1:0:7}
-            echo "✅ Backend image: ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA}"
+            echo "Backend image: ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA}"
 
-  # Deploy backend container app
   deploy-backend:
     executor: docker-builder
     steps:
@@ -178,13 +175,12 @@ jobs:
             echo "Waiting for backend to be ready..."
             sleep 45
             
-            # Health check with retry
             MAX_RETRIES=10
             RETRY_COUNT=0
             
             while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
               if curl -sf "${BACKEND_URL}/health" > /dev/null; then
-                echo "✅ Backend health check passed!"
+                echo "Backend health check passed!"
                 echo "export BACKEND_URL=${BACKEND_URL}" >> $BASH_ENV
                 exit 0
               fi
@@ -194,7 +190,7 @@ jobs:
               sleep 10
             done
             
-            echo "❌ Backend health check failed after ${MAX_RETRIES} retries"
+            echo "Backend health check failed after ${MAX_RETRIES} retries"
             exit 1
       
       - run:
@@ -203,17 +199,15 @@ jobs:
             source $BASH_ENV
             echo "Testing backend API..."
             
-            # Test if API returns data
             RESPONSE=$(curl -s "${BACKEND_URL}/api/games")
             
             if [ -z "$RESPONSE" ] || [ "$RESPONSE" == "[]" ]; then
-              echo "⚠️  Backend API returned empty response (database might be empty)"
+              echo "Backend API returned empty response (database might be empty)"
             else
-              echo "✅ Backend API is returning data!"
+              echo "Backend API is returning data!"
               echo "$RESPONSE" | jq '.[0]' || true
             fi
 
-  # Build and push frontend image (AFTER backend is deployed)
   build-frontend:
     executor: docker-builder
     steps:
@@ -221,7 +215,6 @@ jobs:
       - install-azure-cli
       - login-azure
       
-      # Get backend URL for build
       - run:
           name: Get Backend URL for Build
           command: |
@@ -253,7 +246,6 @@ jobs:
             echo "  Tag: ${SHORT_SHA}"
             echo "  API URL: ${BACKEND_URL}"
             
-            # Build with backend URL as build argument
             docker build \
               --no-cache \
               --build-arg VITE_API_URL=${BACKEND_URL} \
@@ -276,10 +268,9 @@ jobs:
           command: |
             SHORT_SHA=${CIRCLE_SHA1:0:7}
             source $BASH_ENV
-            echo "✅ Frontend built with API URL: ${BACKEND_URL}"
-            echo "✅ Frontend image: ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA}"
+            echo "Frontend built with API URL: ${BACKEND_URL}"
+            echo "Frontend image: ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA}"
 
-  # Deploy frontend container app
   deploy-frontend:
     executor: docker-builder
     steps:
@@ -330,9 +321,7 @@ jobs:
           command: |
             SHORT_SHA=${CIRCLE_SHA1:0:7}
             
-            echo "═══════════════════════════════════════════"
-            echo "✅ Deployment Complete!"
-            echo "═══════════════════════════════════════════"
+            echo "Deployment Complete!"
             
             FRONTEND_FQDN=$(az containerapp show \
               --name gaming-forum-prod-frontend \
@@ -347,35 +336,31 @@ jobs:
               -o tsv)
             
             echo ""
-            echo "📦 Deployed Images:"
+            echo "Deployed Images:"
             echo "   Backend:  ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA}"
             echo "   Frontend: ${ACR_LOGIN_SERVER}/frontend:${SHORT_SHA}"
             echo ""
-            echo "🌐 Application URLs:"
+            echo "Application URLs:"
             echo "   Frontend: https://${FRONTEND_FQDN}"
             echo "   Backend:  https://${BACKEND_FQDN}"
             echo ""
-            echo "📊 View logs:"
+            echo "View logs:"
             echo "   Backend:  az containerapp logs show -n gaming-forum-prod-backend -g ${RESOURCE_GROUP_NAME}"
             echo "   Frontend: az containerapp logs show -n gaming-forum-prod-frontend -g ${RESOURCE_GROUP_NAME}"
             echo ""
-            echo "═══════════════════════════════════════════"
 
-# Workflows
 workflows:
   version: 2
   
-  # Main deployment workflow
+
   build-and-deploy:
     jobs:
-      # Step 1: Build backend image
       - build-backend:
           filters:
             branches:
               only:
                 - main
       
-      # Step 2: Deploy backend (so we get backend URL)
       - deploy-backend:
           requires:
             - build-backend
@@ -384,7 +369,7 @@ workflows:
               only:
                 - main
       
-      # Step 3: Build frontend WITH backend URL
+
       - build-frontend:
           requires:
             - deploy-backend
@@ -393,7 +378,6 @@ workflows:
               only:
                 - main
       
-      # Step 4: Deploy frontend
       - deploy-frontend:
           requires:
             - build-frontend

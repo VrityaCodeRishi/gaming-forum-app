@@ -1,4 +1,3 @@
-# File Share for Grafana Provisioning
 resource "azurerm_storage_share" "grafana_provisioning" {
   name                 = "grafana-provisioning"
   storage_account_name = azurerm_storage_account.monitoring.name
@@ -12,7 +11,6 @@ resource "azurerm_storage_share_directory" "grafana_datasources" {
   storage_share_id = azurerm_storage_share.grafana_provisioning.id
 }
 
-# Generate Grafana datasources config
 locals {
   grafana_postgres_url = (
     startswith(var.postgres_host, "postgresql://")
@@ -32,13 +30,11 @@ locals {
   })
 }
 
-# Write config to local file
 resource "local_file" "grafana_datasources" {
   content  = local.grafana_datasources
   filename = "${path.module}/.generated/datasources.yml"
 }
 
-# Upload Grafana datasources config
 resource "azurerm_storage_share_file" "grafana_datasources" {
   name             = "datasources.yml"
   path             = "datasources"
@@ -51,7 +47,6 @@ resource "azurerm_storage_share_file" "grafana_datasources" {
   ]
 }
 
-# Container App Environment Storage
 resource "azurerm_container_app_environment_storage" "grafana_provisioning" {
   name                         = "grafana-provisioning"
   container_app_environment_id = var.container_app_environment_id
@@ -61,7 +56,6 @@ resource "azurerm_container_app_environment_storage" "grafana_provisioning" {
   access_mode                  = "ReadWrite"
 }
 
-# Grafana Container App
 resource "azurerm_container_app" "grafana" {
   name                         = "${local.name_prefix}-grafana"
   container_app_environment_id = var.container_app_environment_id

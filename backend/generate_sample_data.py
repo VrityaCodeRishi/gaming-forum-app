@@ -1,6 +1,6 @@
 """
-Script to populate Azure PostgreSQL database with sample gaming forum data
-Run with: python populate_azure_db.py
+This script is not created by me but generated from perplexity 
+to fill in the data regarding the games,users and posts in our app.
 """
 
 import sys

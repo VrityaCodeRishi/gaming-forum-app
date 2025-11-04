@@ -23,7 +23,7 @@ provider "azurerm" {
 
 provider "time" {}
 
-# Local variables
+
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
@@ -38,7 +38,6 @@ locals {
   )
 }
 
-# Storage Account for Monitoring Configs
 resource "azurerm_storage_account" "monitoring" {
   name                     = "${replace(var.project_name, "-", "")}${var.environment}mon"
   resource_group_name      = var.resource_group_name
@@ -49,7 +48,6 @@ resource "azurerm_storage_account" "monitoring" {
   tags = local.common_tags
 }
 
-# Allow time for storage account provisioning to propagate before dependent resources run
 resource "time_sleep" "storage_account_ready" {
   depends_on      = [azurerm_storage_account.monitoring]
   create_duration = "30s"

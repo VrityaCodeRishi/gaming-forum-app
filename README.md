@@ -131,11 +131,53 @@ This brings up:
   - `sentiment_analysis_duration_seconds` (histogram for inference latency).
 
 ## Deployment
-> **TODO:** Add step-by-step instructions for provisioning, secrets management, and triggering production deployments.
+Fill the the terraform.tfvars as per your want .
+```
+cd terraform
+terraform init
+terraform apply
+```
 
-Suggested outline to fill in:
-1. Terraform apply (core + monitoring).
-2. Configure CircleCI project variables.
-3. Trigger `build-and-deploy` workflow on `main` branch.
-4. Post-deploy verification: `/health`, `/metrics`, Grafana dashboard import.gi
+Now create env variables in the CircleCI project. These variables are needed
+
+```
+AZURE_CLIENT_ID – service principal app id used for az login.
+AZURE_CLIENT_SECRET – client secret for that principal.
+AZURE_TENANT_ID – Azure AD tenant id.
+AZURE_SUBSCRIPTION_ID – target subscription id.
+RESOURCE_GROUP_NAME – e.g., gaming-forum-prod-rg; used when updating/showing container apps.
+CONTAINER_APP_ENVIRONMENT_NAME – e.g., gaming-forum-prod-cae.
+ACR_LOGIN_SERVER – registry hostname like gamingforumprodxyz.azurecr.io.
+ACR_USERNAME – admin username (or service principal) for the registry.
+ACR_PASSWORD – matching password for ACR login.
+DATABASE_CONNECTION_STRING – full Postgres URL the backend container should receive (e.g., postgresql://postgres:<pwd>@gaming-forum-prod-psql-...:5432/forum_db?sslmode=require).
+```
+
+
+```
+az ad sp create-for-rbac \                           
+  --name "gaming-forum-circleci" \
+  --role Contributor \
+  --scopes /subscriptions/<subscription ID>
+```
+
+You will get CLIENT ID and CLIENT SECRET then run these commands to get the rest of the values
+```
+terraform output -raw backend_url
+terraform output -raw database_fqdn
+terraform output -raw db_admin_username
+terraform output -raw db_admin_password
+terraform output -raw database_name
+terraform output -raw resource_group_name
+terraform output -raw container_app_environment_id
+```
+
+After creating base resources 
+```
+cd monitoring
+Fill in the terraform.tfvars
+terraform init
+terraform apply
+```
+Once the Monitoring stack is up do any commit in the main branch which will trigger the CI/CD pipeline in the CircleCI. It will deploy the frontend and the backend.
 ---

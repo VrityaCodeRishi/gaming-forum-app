@@ -83,6 +83,7 @@ monitoring/crash.log
 monitoring/override.tf
 monitoring/override.tf.json
 monitoring/*_override.tf
+monitoring/.generated/*
 monitoring/*_override.tf.json
 docker-volumes/
 *.db

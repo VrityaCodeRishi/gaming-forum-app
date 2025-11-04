@@ -91,7 +91,7 @@ jobs:
             echo "Building backend with tag: ${SHORT_SHA}"
             
             docker build \
-              --cache-from ${ACR_LOGIN_SERVER}/backend:latest \
+              --no-cache \
               -t ${ACR_LOGIN_SERVER}/backend:${SHORT_SHA} \
               -t ${ACR_LOGIN_SERVER}/backend:latest \
               -f backend/Dockerfile \

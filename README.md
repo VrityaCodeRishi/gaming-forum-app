@@ -47,6 +47,10 @@ sequenceDiagram
     Router-->>Client: JSON response with<br/>sentiment annotations
 ```
 
+### Deployment Topology
+
+![Gaming Forum Topology](images/gaming-forum.png)
+
 ### Frontend Application
 - Codebase under `frontend/`. Vite configuration in `frontend/vite.config.ts`.
 - Interfaces with backend using `frontend/src/api/client.ts` and renders data through React components such as `GamesList` and `Navbar`.

@@ -6,7 +6,7 @@ Modern full-stack reference implementation that combines a FastAPI backend, Reac
 - **Real-time sentiment analysis** for forum posts using a state-of-the-art Twitter RoBERTa transformer pipeline.
 - **Cloud-native deployment** on Azure Container Apps with automated builds via CircleCI.
 - **Infrastructure as Code** covering compute, networking, database, and monitoring stacks.
-- **Production-grade observability** with Prometheus scraping and Grafana dashboards.
+- **Observability** with Prometheus scraping and Grafana dashboards.
 
 ## Architecture Overview
 
@@ -26,6 +26,26 @@ Modern full-stack reference implementation that combines a FastAPI backend, Reac
 - SQLAlchemy models and Pydantic schemas under `backend/models.py` and `backend/schemas.py`.
 - Metrics exported in Prometheus format (`/metrics`) using custom counters, gauges, and histograms defined in `backend/prometheus_metrics.py`.
 - Sentiment analysis orchestrated in `backend/sentiment.py`, returning normalized label (`POSITIVE`, `NEGATIVE`, `NEUTRAL`), confidence, and signed score.
+
+### Sentiment Workflow
+
+```mermaid
+sequenceDiagram
+    participant Client as Web / API Client
+    participant Router as FastAPI Router<br/>(`/api/posts`)
+    participant Analyzer as SentimentAnalyzer<br/>(Hugging Face)
+    participant DB as PostgreSQL<br/>(`forum_db`)
+    participant Metrics as Prometheus<br/>Counters & Histograms
+
+    Client->>Router: POST /api/posts (title, content, game_id, username)
+    Router->>DB: Lookup game & user<br/>(create user if missing)
+    Router->>Analyzer: analyze(content)
+    Analyzer-->>Router: {label, confidence,<br/>sentiment_score}
+    Router->>Metrics: Observe latency +<br/>increment counters
+    Router->>DB: Insert post with sentiment<br/>fields & update averages
+    DB-->>Router: Persisted post record
+    Router-->>Client: JSON response with<br/>sentiment annotations
+```
 
 ### Frontend Application
 - Codebase under `frontend/`. Vite configuration in `frontend/vite.config.ts`.
@@ -67,23 +87,6 @@ This brings up:
 3. React frontend on http://localhost:3000.
 4. Optional pgAdmin UI on http://localhost:5050 (credentials set in `docker-compose.yml`).
 
-### Running Backend Manually
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/forum_db
-uvicorn main:app --reload
-```
-
-### Running Frontend Manually
-```bash
-cd frontend
-npm install
-npm run dev -- --host
-```
-Set `VITE_API_URL` in a `.env.local` file if the backend is not on the default origin.
 
 ## Database Management
 - Core schema defined via SQLAlchemy models (`backend/models.py`) and synchronized automatically when the backend starts.
@@ -130,6 +133,5 @@ Suggested outline to fill in:
 1. Terraform apply (core + monitoring).
 2. Configure CircleCI project variables.
 3. Trigger `build-and-deploy` workflow on `main` branch.
-4. Post-deploy verification: `/health`, `/metrics`, Grafana dashboard import.
+4. Post-deploy verification: `/health`, `/metrics`, Grafana dashboard import.gi
 ---
-
